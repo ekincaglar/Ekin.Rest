@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>Ekin.Rest</id>
+    <version>$version$</version>
+    <title>$title$</title>
+    <authors>$author$</authors>
+    <owners>$author$</owners>
+    <licenseUrl>http://rest.ekin.co/license</licenseUrl>
+    <projectUrl>http://rest.ekin.co/</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>$description$</description>
+    <releaseNotes>See http://rest.ekin.co/ for usage details</releaseNotes>
+    <copyright>Copyright 2016</copyright>
+  </metadata>
+</package>

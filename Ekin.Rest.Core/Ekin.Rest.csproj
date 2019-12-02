@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Ekin.Rest\Client.cs" Link="Client.cs" />
+    <Compile Include="..\Ekin.Rest\Enums.cs" Link="Enums.cs" />
+    <Compile Include="..\Ekin.Rest\Extensions.cs" Link="Extensions.cs" />
+    <Compile Include="..\Ekin.Rest\Response.cs" Link="Response.cs" />
+    <Compile Include="..\Ekin.Rest\WebClient.cs" Link="WebClient.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
+  </ItemGroup>
+
+</Project>
