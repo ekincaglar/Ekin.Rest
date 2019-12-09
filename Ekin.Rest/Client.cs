@@ -224,7 +224,10 @@ namespace Ekin.Rest
                     reader.Close();
                 }
             }
-            catch { };
+            catch (Exception ex)
+            {
+
+            };
             return response;
         }
 
@@ -237,7 +240,7 @@ namespace Ekin.Rest
                 {
                     return JsonConvert.DeserializeObject(response, ErrorType);
                 }
-                catch
+                catch (Exception exception)
                 {
 
                 }
