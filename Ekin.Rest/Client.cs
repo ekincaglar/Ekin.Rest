@@ -299,12 +299,19 @@ namespace Ekin.Rest
             return Execute(WebRequestMethod.Put);
         }
 
-        public Response Put(object obj)
+        public Response Put(object obj, bool serializeNullValues = false, bool AllowReferenceLoops = true)
         {
             try
             {
                 // TODO: Check if JsonConvert.SerializeObject does the equivalent of Uri.EscapeDataString("escape me")
-                _values = JsonConvert.SerializeObject(obj);
+                JsonSerializerSettings serializerSettings = new JsonSerializerSettings()
+                {
+                    ReferenceLoopHandling = AllowReferenceLoops ? ReferenceLoopHandling.Serialize : ReferenceLoopHandling.Error,
+                    NullValueHandling = serializeNullValues ? NullValueHandling.Include : NullValueHandling.Ignore
+                };
+
+                _values = JsonConvert.SerializeObject(obj, serializerSettings);
+
                 return Execute(WebRequestMethod.Put);
             }
             catch (Exception ex)
