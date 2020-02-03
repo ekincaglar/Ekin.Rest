@@ -274,23 +274,12 @@ namespace Ekin.Rest
             try
             {
                 // TODO: Check if JsonConvert.SerializeObject does the equivalent of Uri.EscapeDataString("escape me")
-                JsonSerializerSettings serializerSettings = new JsonSerializerSettings();
-                if (AllowReferenceLoops)
+                JsonSerializerSettings serializerSettings = new JsonSerializerSettings()
                 {
-                    serializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Serialize;
-                }
-                else
-                {
-                    serializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Error;
-                }
-                if (serializeNullValues)
-                {
-                    serializerSettings.NullValueHandling = NullValueHandling.Include;
-                }
-                else
-                {
-                    serializerSettings.NullValueHandling = NullValueHandling.Ignore;
-                }
+                    ReferenceLoopHandling = AllowReferenceLoops ? ReferenceLoopHandling.Serialize : ReferenceLoopHandling.Error,
+                    NullValueHandling = serializeNullValues ? NullValueHandling.Include : NullValueHandling.Ignore
+                };
+
                 _values = JsonConvert.SerializeObject(obj, serializerSettings);
 
                 return Execute(WebRequestMethod.Post);
