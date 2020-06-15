@@ -30,7 +30,7 @@ namespace Ekin.Rest
         public int Timeout { get; set; }
         public int RetryCount { get; set; } = 1;
         public int SleepBetweenRetries { get; set; } = 0;
-        public string UserAgent { get; set; } = "EkinRest/2.2.0";  // "Mozilla/5.0 (X11; CrOS x86_64 8172.45.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.64 Safari/537.36";
+        public string UserAgent { get; set; } = "EkinRest/2.2.0";
         public bool KeepAlive { get; set; } = true;
         public IWebProxy Proxy { get; set; } = null;
         public RequestCachePolicy CachePolicy { get; set; } = null; // new RequestCachePolicy(RequestCacheLevel.Default);
