@@ -3,10 +3,10 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>2.2.0</Version>
+    <Version>3.0</Version>
     <Authors>Ekin Caglar</Authors>
     <Description>Helper library for performing RESTful CRUD operations online</Description>
-    <Copyright>Copyright © 2016-2019, Ekin Caglar. All rights reserved.</Copyright>
+    <Copyright>Copyright © 2016-2020, Ekin Caglar. All rights reserved.</Copyright>
     <PackageLicenseUrl>http://ekin.co/restlicense</PackageLicenseUrl>
     <PackageProjectUrl>http://ekin.co/rest</PackageProjectUrl>
     <PackageTags>rest api ekin caglar</PackageTags>

@@ -2,8 +2,11 @@
 using System;
 using System.IO;
 using System.Net;
+using System.Net.Cache;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Ekin.Rest
 {
@@ -11,22 +14,27 @@ namespace Ekin.Rest
     {
         #region Local Parameters
         
-        private string _url { get; set; }
-        private ICredentials _credentials { get; set; }
-        private WebHeaderCollection _headers { get; set; }
-        private int _timeout { get; set; }
         private string _values { get; set; }
-        private int _retryCount = 1;
-        private int _sleepBetweenRetries = 0;
 
         #endregion
 
         #region Public Parameters
 
-        public string ContentType = "application/json; charset=utf-8";
-        public string Accept = "application/json";
-        public Type ErrorType = null;
-        public bool EnableGzipEncoding = true;
+        public string Url { get; set; }
+        public ICredentials Credentials { get; set; }
+        public WebHeaderCollection Headers { get; set; }
+        public string ContentType = "application/json";
+        //public string ContentType { get; set; } = "application/json; charset=utf-8";
+        public string Accept { get; set; } = "application/json";
+        public Type ErrorType { get; set; } = null;
+        public bool EnableGzipEncoding { get; set; } = true;
+        public int Timeout { get; set; }
+        public int RetryCount { get; set; } = 1;
+        public int SleepBetweenRetries { get; set; } = 0;
+        public string UserAgent { get; set; } = "EkinRest/2.2.0";  // "Mozilla/5.0 (X11; CrOS x86_64 8172.45.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.64 Safari/537.36";
+        public bool KeepAlive { get; set; } = true;
+        public IWebProxy Proxy { get; set; } = null;
+        public RequestCachePolicy CachePolicy { get; set; } = null; // new RequestCachePolicy(RequestCacheLevel.Default);
 
         #endregion
 
@@ -34,70 +42,70 @@ namespace Ekin.Rest
 
         public Client(string url, ICredentials credentials, int timeout, int retryCount, int sleepBetweenRetries)
         {
-            _url = url;
-            _credentials = credentials;
-            _timeout = timeout;
-            _retryCount = retryCount;
-            _sleepBetweenRetries = sleepBetweenRetries;
+            Url = url;
+            Credentials = credentials;
+            Timeout = timeout;
+            RetryCount = retryCount;
+            SleepBetweenRetries = sleepBetweenRetries;
         }
 
         public Client(string url, ICredentials credentials, int timeout)
         {
-            _url = url;
-            _credentials = credentials;
-            _timeout = timeout;
+            Url = url;
+            Credentials = credentials;
+            Timeout = timeout;
         }
 
         public Client(string url, ICredentials credentials)
         {
-            _url = url;
-            _credentials = credentials;
+            Url = url;
+            Credentials = credentials;
         }
 
         public Client(string url, int timeout)
         {
-            _url = url;
-            _credentials = CredentialCache.DefaultCredentials;
-            _timeout = timeout;
+            Url = url;
+            Credentials = CredentialCache.DefaultCredentials;
+            Timeout = timeout;
         }
 
         public Client(string url)
         {
-            _url = url;
-            _credentials = CredentialCache.DefaultCredentials;
+            Url = url;
+            Credentials = CredentialCache.DefaultCredentials;
         }
 
         public Client(string url, WebHeaderCollection headers, int timeout, int retryCount, int sleepBetweenRetries)
         {
-            _url = url;
-            _headers = headers;
-            _timeout = timeout;
-            _retryCount = retryCount;
-            _sleepBetweenRetries = sleepBetweenRetries;
+            Url = url;
+            Headers = headers;
+            Timeout = timeout;
+            RetryCount = retryCount;
+            SleepBetweenRetries = sleepBetweenRetries;
         }
 
         public Client(string url, WebHeaderCollection headers, int timeout)
         {
-            _url = url;
-            _headers = headers;
-            _timeout = timeout;
+            Url = url;
+            Headers = headers;
+            Timeout = timeout;
         }
 
         public Client(string url, WebHeaderCollection headers)
         {
-            _url = url;
-            _headers = headers;
+            Url = url;
+            Headers = headers;
         }
 
         #endregion
 
         #region Web requests are handled here
 
-        private Response Execute(WebRequestMethod method)
+        private async Task<Response> Execute(WebRequestMethod method)
         {
             Response response = new Response();
 
-            if (String.IsNullOrWhiteSpace(_url))
+            if (String.IsNullOrWhiteSpace(Url))
             {
                 response.Status = HttpStatusCode.Unused;
                 response.InternalError = new WebException("URL empty");
@@ -106,29 +114,86 @@ namespace Ekin.Rest
 
             // Url should be truncated to 2000 characters or less
             // TODO: We should notify the caller that we're changing their url
-            if (_url.Length > 2000)
+            if (Url.Length > 2000)
             {
-                _url = _url.Substring(0, 2000);
-                if (_url.Contains("%2C")) _url = _url.Substring(0, _url.LastIndexOf("%2C"));
+                Url = Url.Substring(0, 2000);
+                if (Url.Contains("%2C")) Url = Url.Substring(0, Url.LastIndexOf("%2C"));
             }
 
             // Prepare the http request
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(_url);
-            if (_timeout > 0)
-                request.Timeout = _timeout;
-            if (_credentials != null)
-                request.Credentials = _credentials;
-            if (_headers != null)
-                request.Headers = _headers;
-            else
-                request.Headers = new System.Net.WebHeaderCollection();
+            HttpWebRequest request = CreateHttpRequest(method);
+
+            // Get the http response
+            bool isResponseProcessed = false;
+            int CurrentRetryCount = RetryCount > 1 ? RetryCount : 1;
+            while (CurrentRetryCount > 0)
+            {
+                try
+                {
+                    //using (HttpWebResponse webResponse = (HttpWebResponse)await request.GetResponseAsync())
+                    using (HttpWebResponse webResponse = (HttpWebResponse)request.GetResponse())
+                    {
+                        response.Status = webResponse.StatusCode;
+                        response.StatusDescription = webResponse.StatusDescription;
+                        response.Content = GetContent(webResponse);
+                        isResponseProcessed = true;
+                    }
+                    break;
+                }
+                catch (WebException ex)
+                {
+                    CurrentRetryCount--;
+
+                    if (CurrentRetryCount == 0)
+                    {
+                        response.InternalError = GetError(ex);
+                        if (ex.Status == WebExceptionStatus.ProtocolError)
+                            response.Status = ((HttpWebResponse)ex.Response).StatusCode;
+                        else
+                            response.Status = HttpStatusCode.Unused;
+                        return response;
+                    }
+
+                    if (SleepBetweenRetries > 0)
+                    {
+                        await Task.Delay(SleepBetweenRetries);
+                    }
+                }
+            }
+
+            if (!isResponseProcessed)
+            {
+                response.Status = HttpStatusCode.RequestTimeout;
+                response.StatusDescription = $"No response could be retrieved from destination after {RetryCount} retries";
+                response.Content = string.Empty;
+            }
+
+            return response;
+        }
+
+        private HttpWebRequest CreateHttpRequest(WebRequestMethod method)
+        {
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url);
+            request.Accept = Accept;
+            request.ContentType = ContentType;
+            request.UserAgent = UserAgent;
+            request.KeepAlive = KeepAlive;
+            request.Proxy = Proxy;
+            request.CachePolicy = CachePolicy;
+
+            if (Timeout > 0)
+                request.Timeout = Timeout;
+
+            if (Credentials != null)
+                request.Credentials = Credentials;
+
+            request.Headers = Headers == null ? new System.Net.WebHeaderCollection() : Headers;
+
             if (EnableGzipEncoding)
             {
                 request.Headers.Add(System.Net.HttpRequestHeader.AcceptEncoding, "gzip");
                 request.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
             }
-            request.ContentType = this.ContentType;
-            request.Accept = this.Accept;
 
             switch (method)
             {
@@ -152,6 +217,7 @@ namespace Ekin.Rest
                         streamWriter.Write(_values);
                         streamWriter.Flush();
                     }
+                    //bodyStream.BaseStream.Seek(0, SeekOrigin.Begin);
                     break;
 
                 case WebRequestMethod.Delete:
@@ -162,72 +228,30 @@ namespace Ekin.Rest
                     break;
             }
 
-            // Get the http response
-            HttpWebResponse webResponse = null;
-            int CurrentRetryCount = _retryCount > 1 ? _retryCount : 1;
-            while (CurrentRetryCount > 0)
-            {
-                try
-                {
-                    webResponse = (HttpWebResponse)request.GetResponse();
-                    break;
-                }
-                catch (WebException ex)
-                {
-                    CurrentRetryCount--;
-
-                    if (CurrentRetryCount == 0)
-                    {
-                        response.InternalError = GetError(ex);
-                        if (ex.Status == WebExceptionStatus.ProtocolError)
-                            response.Status = ((HttpWebResponse)ex.Response).StatusCode;
-                        else
-                            response.Status = HttpStatusCode.Unused;
-                        return response;
-                    }
-
-                    if (_sleepBetweenRetries > 0)
-                    {
-                        System.Threading.Thread.Sleep(_sleepBetweenRetries);
-                    }
-                }
-            }
-            if (webResponse != null)
-            {
-                response.Status = webResponse.StatusCode;
-                response.StatusDescription = webResponse.StatusDescription;
-                response.Content = GetContent(webResponse);
-
-                // Close the HttpWebResponse
-                webResponse.Close();
-            }
-            else
-            {
-                response.Status = HttpStatusCode.RequestTimeout;
-                response.StatusDescription = $"No response could be retrieved from destination after {_retryCount} retries";
-                response.Content = string.Empty;
-            }
-
-            return response;
+            return request;
         }
 
         internal string GetContent(WebResponse webResponse)
         {
-            string response = "";
-            try
+            string response = string.Empty;
+            if (webResponse != null)
             {
-                // Convert the response to plain text
-                Stream dataStream = webResponse.GetResponseStream();
-                using (StreamReader reader = new StreamReader(dataStream))
+                try
                 {
-                    response = reader.ReadToEnd();
-                    reader.Close();
+                    // Convert the response to plain text
+                    using (Stream stream = webResponse.GetResponseStream())
+                    {
+                        using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
+                        {
+                            response = reader.ReadToEnd();
+                        }
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
+                catch
+                {
 
-            };
+                };
+            }
             return response;
         }
 
@@ -252,15 +276,15 @@ namespace Ekin.Rest
 
         #region Get / Post / Put / Delete methods
 
-        public Response Get()
+        public async Task<Response> Get()
         {
-            return Execute(WebRequestMethod.Get);
+            return await Execute(WebRequestMethod.Get);
         }
 
-        public Response Post(string values)
+        public async Task<Response> Post(string values)
         {
             _values = values;
-            return Execute(WebRequestMethod.Post);
+            return await Execute(WebRequestMethod.Post);
         }
 
         /// <summary>
@@ -269,7 +293,7 @@ namespace Ekin.Rest
         /// <param name="obj">Object to post to the API</param>
         /// <param name="serializeNullValues">Should the NULL values in the object be serialised when sent to the server as JSON</param>
         /// <returns></returns>
-        public Response Post(object obj, bool serializeNullValues = false, bool AllowReferenceLoops = true)
+        public async Task<Response> Post(object obj, bool serializeNullValues = false, bool AllowReferenceLoops = true)
         {
             try
             {
@@ -282,7 +306,7 @@ namespace Ekin.Rest
 
                 _values = JsonConvert.SerializeObject(obj, serializerSettings);
 
-                return Execute(WebRequestMethod.Post);
+                return await Execute(WebRequestMethod.Post);
             }
             catch (Exception ex)
             {
@@ -293,13 +317,13 @@ namespace Ekin.Rest
             }
         }
 
-        public Response Put(string values)
+        public async Task<Response> Put(string values)
         {
             _values = values;
-            return Execute(WebRequestMethod.Put);
+            return await Execute(WebRequestMethod.Put);
         }
 
-        public Response Put(object obj, bool serializeNullValues = false, bool AllowReferenceLoops = true)
+        public async Task<Response> Put(object obj, bool serializeNullValues = false, bool AllowReferenceLoops = true)
         {
             try
             {
@@ -312,7 +336,7 @@ namespace Ekin.Rest
 
                 _values = JsonConvert.SerializeObject(obj, serializerSettings);
 
-                return Execute(WebRequestMethod.Put);
+                return await Execute(WebRequestMethod.Put);
             }
             catch (Exception ex)
             {
@@ -323,9 +347,9 @@ namespace Ekin.Rest
             }
         }
 
-        public Response Delete()
+        public async Task<Response> Delete()
         {
-            return Execute(WebRequestMethod.Delete);
+            return await Execute(WebRequestMethod.Delete);
         }
 
         #endregion
