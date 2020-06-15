@@ -23,8 +23,7 @@ namespace Ekin.Rest
         public string Url { get; set; }
         public ICredentials Credentials { get; set; }
         public WebHeaderCollection Headers { get; set; }
-        public string ContentType = "application/json";
-        //public string ContentType { get; set; } = "application/json; charset=utf-8";
+        public string ContentType { get; set; } = "application/json; charset=utf-8";
         public string Accept { get; set; } = "application/json";
         public Type ErrorType { get; set; } = null;
         public bool EnableGzipEncoding { get; set; } = true;

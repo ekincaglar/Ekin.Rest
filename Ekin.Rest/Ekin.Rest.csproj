@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>3.0</Version>
+    <Version>3.0.1</Version>
     <Authors>Ekin Caglar</Authors>
     <Description>Helper library for performing RESTful CRUD operations online</Description>
     <Copyright>Copyright © 2016-2020, Ekin Caglar. All rights reserved.</Copyright>
