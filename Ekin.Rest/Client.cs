@@ -34,6 +34,8 @@ namespace Ekin.Rest
         public bool KeepAlive { get; set; } = true;
         public IWebProxy Proxy { get; set; } = null;
         public RequestCachePolicy CachePolicy { get; set; } = null; // new RequestCachePolicy(RequestCacheLevel.Default);
+        public Version ProtocolVersion { get; set; } = HttpVersion.Version11;
+        public int? ConnectionLimit { get; set; } = null; // ServicePointManager.DefaultConnectionLimit;
 
         #endregion
 
@@ -179,12 +181,22 @@ namespace Ekin.Rest
             request.KeepAlive = KeepAlive;
             request.Proxy = Proxy;
             request.CachePolicy = CachePolicy;
+            request.ProtocolVersion = ProtocolVersion;
+
+            if (ConnectionLimit != null)
+            {
+                request.ServicePoint.ConnectionLimit = ConnectionLimit.GetValueOrDefault();
+            }
 
             if (Timeout > 0)
+            {
                 request.Timeout = Timeout;
+            }
 
             if (Credentials != null)
+            {
                 request.Credentials = Credentials;
+            }
 
             request.Headers = Headers == null ? new System.Net.WebHeaderCollection() : Headers;
 
